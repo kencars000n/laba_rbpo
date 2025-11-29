@@ -22,6 +22,11 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    // НОВОЕ ПОЛЕ: пароль для аутентификации
+    @Column(nullable = false)
+    @JsonIgnore // Не показываем пароль в JSON ответах
+    private String password;
+
     @OneToMany(mappedBy = "assignee")
     @JsonIgnore
     private List<Task> assignedTasks = new ArrayList<>();
@@ -29,10 +34,20 @@ public class User {
     // Конструкторы
     public User() {}
 
+    // Старый конструктор (для обратной совместимости)
     public User(String username, String email, Role role) {
         this.username = username;
         this.email = email;
         this.role = role;
+        this.password = "default"; // временное значение
+    }
+
+    // Новый конструктор с паролем
+    public User(String username, String email, Role role, String password) {
+        this.username = username;
+        this.email = email;
+        this.role = role;
+        this.password = password;
     }
 
     // Геттеры и сеттеры
@@ -47,6 +62,9 @@ public class User {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
     public List<Task> getAssignedTasks() { return assignedTasks; }
     public void setAssignedTasks(List<Task> assignedTasks) { this.assignedTasks = assignedTasks; }
