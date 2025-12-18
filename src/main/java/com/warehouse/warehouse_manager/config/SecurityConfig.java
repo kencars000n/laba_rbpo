@@ -1,20 +1,26 @@
 package com.warehouse.warehouse_manager.config;
 
+import com.warehouse.warehouse_manager.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -22,37 +28,32 @@ public class SecurityConfig {
     }
 
     @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-
         http
-                // 1. Настройка CSRF через Cookie (требование задания)
-                .csrf(csrf -> csrf
-                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                                .csrfTokenRequestHandler(requestHandler)
-                        // Если ты тестируешь через Postman и возникают проблемы с 403 на POST,
-                        // можно временно раскомментировать строку ниже:
-                        // .ignoringRequestMatchers("/api/**")
-                )
-
-                // 2. Управление доступом
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ТЕПЕРЬ: регистрация доступна ТОЛЬКО пользователям с ролью ADMIN
+                        // Публичные методы
+                        .requestMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
+
+                        // Регистрация новых пользователей — только Админ
                         .requestMatchers("/api/auth/register").hasRole("ADMIN")
 
-                        // Просмотр данных (GET) разрешен и USER, и ADMIN
+                        // Просмотр данных (Склады, товары) — Юзер и Админ
                         .requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole("USER", "ADMIN")
 
-                        // Все изменения (POST, PUT, DELETE) разрешены ТОЛЬКО ADMIN
-                        // Сюда входит: добавление товара, списание брака, слияние складов
+                        // Любые изменения (POST, PUT, DELETE) — только Админ
                         .requestMatchers("/api/**").hasRole("ADMIN")
 
-                        // Все остальные запросы должны быть авторизованы
                         .anyRequest().authenticated()
-                )
+                );
 
-                // 3. Включаем Basic Auth (требование задания)
-                .httpBasic(Customizer.withDefaults());
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
