@@ -1,7 +1,8 @@
 package com.warehouse.warehouse_manager.controller;
 
 import com.warehouse.warehouse_manager.model.Movement;
-import com.warehouse.warehouse_manager.repository.MovementRepository;
+import com.warehouse.warehouse_manager.services.WarehouseService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -10,45 +11,42 @@ import java.util.List;
 @RequestMapping("/api/movements")
 public class MovementController {
 
-    private final MovementRepository repository;
+    @Autowired
+    private WarehouseService warehouseService;
 
-    public MovementController(MovementRepository repository) {
-        this.repository = repository;
-    }
-
-    // Получить все перемещения
+    // ТО ЧЕГО НЕ ХВАТАЛО: Список всех движений (Аудит)
     @GetMapping
     public List<Movement> getAll() {
-        return repository.findAll();
+        return warehouseService.getAllMovements();
     }
 
-    // Создать новое перемещение
-    @PostMapping
-    public Movement create(@RequestBody Movement movement) {
-        // Устанавливаем текущее время, если оно не пришло в запросе
-        if (movement.getTimestamp() == null) {
-            movement.setTimestamp(java.time.LocalDateTime.now());
-        }
-        return repository.save(movement);
+    // Операция №1: Приход
+    @PostMapping("/receive")
+    public Movement receive(@RequestBody Movement m) {
+        return warehouseService.receiveGoods(m);
     }
 
-    // ОБНОВИТЬ перемещение (Тот самый метод, которого не хватало)
-    @PutMapping("/{id}")
-    public Movement update(@PathVariable Long id, @RequestBody Movement details) {
-        return repository.findById(id).map(movement -> {
-            movement.setAmount(details.getAmount());
-            // Если нужно менять дату или склады, можно добавить и их
-            if (details.getItem() != null) movement.setItem(details.getItem());
-            if (details.getFromWarehouse() != null) movement.setFromWarehouse(details.getFromWarehouse());
-            if (details.getToWarehouse() != null) movement.setToWarehouse(details.getToWarehouse());
-
-            return repository.save(movement);
-        }).orElseThrow(() -> new RuntimeException("Movement not found with id " + id));
+    // Операция №2: Расход
+    @PostMapping("/ship")
+    public Movement ship(@RequestBody Movement m) {
+        return warehouseService.shipGoods(m);
     }
 
-    // Удалить перемещение
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        repository.deleteById(id);
+    // Операция №3: Перемещение
+    @PostMapping("/transfer")
+    public Movement transfer(@RequestBody Movement m) {
+        return warehouseService.transferGoods(m);
+    }
+
+    // Операция №4: Списание брака
+    @PostMapping("/defect")
+    public String reportDefect(@RequestParam Long warehouseId, @RequestParam Long itemId, @RequestParam Integer amount) {
+        return warehouseService.reportDefectiveGoods(warehouseId, itemId, amount);
+    }
+
+    // Операция №5: Слияние складов
+    @PostMapping("/merge")
+    public String merge(@RequestParam Long fromId, @RequestParam Long toId) {
+        return warehouseService.mergeWarehouses(fromId, toId);
     }
 }
