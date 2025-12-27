@@ -25,7 +25,7 @@ jobs:
         echo "${{ secrets.SSL_KEYSTORE }}" | base64 --decode > src/main/resources/final_server.jks
 
     - name: Build with Maven
-      run: mvn -B package -DskipTests --file pom.xml
+      run: mvn -B package --file pom.xml
       env:
         SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.SSL_PASSWORD }}
 
